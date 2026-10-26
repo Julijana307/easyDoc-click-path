@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>easyDoc Quote Flow</title>
+<style>
+/* Layout: presenter bar (stepper + caption) above a scaled 1280x720 Lightning screen; clicks inside the screen advance the flow. */
+:root{
+  --bg:#eef2f7; --fg:#16202b; --muted:#566676; --line:#d3dce6; --chip:#ffffff; --accent:#0b5cab; --accent-fg:#ffffff;
+  --sf-brand:#0176d3; --sf-brand-d:#014486; --sf-text:#181818; --sf-weak:#444444; --sf-line:#d8dde6; --sf-border:#c9c9c9;
+  --sf-page:#f0f4f9; --sf-red:#ba0517; --sf-green:#2e844a; --sf-quote:#2e9e5b; --sf-orange:#fe9339; --sf-hot:#ff5d2e;
+  --word:#185abd; --word-bg:#e6e6e6; --ph:#fff3b0; --ph-line:#d9a800;
+  --font:"Salesforce Sans",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1620;--fg:#e7eef6;--muted:#9aa9ba;--line:#263546;--chip:#162130;--accent:#6db3ff;--accent-fg:#06192e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1620;--fg:#e7eef6;--muted:#9aa9ba;--line:#263546;--chip:#162130;--accent:#6db3ff;--accent-fg:#06192e;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit}
+/* presenter bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+.top h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.top p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.steps{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.grp{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 2px 0 8px}
+.grp:first-child{margin-left:0}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer;display:flex;gap:7px;align-items:center}
+.chip b{width:18px;height:18px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:11px}
+.chip.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.chip.on b{background:rgba(255,255,255,.25)}
+.chip:focus-visible,.pbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.cap .t{font-size:14px;font-weight:700}
+.cap .t small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.cap .h{font-size:13px;color:var(--muted);flex:1 1 260px;min-width:0}
+.cap .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pbtn{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+.pbtn[disabled]{opacity:.4;cursor:default}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12.5px}
+.seg button{border:0;background:transparent;padding:6px 10px;cursor:pointer}
+.seg button.on{background:var(--accent);color:var(--accent-fg)}
+.seg-l{font-size:12px;color:var(--muted)}
+.viewport{position:relative;width:100%;overflow:hidden;border-radius:14px;border:1px solid var(--line);background:#fff}
+.canvas{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0}
+/* Lightning screen */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--sf-page);font-family:var(--font);font-size:13px;color:var(--sf-text);line-height:1.35}
+.screen svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.gh{height:52px;background:#fff;border-bottom:1px solid var(--sf-line);display:flex;align-items:center;gap:16px;padding:0 16px;flex:none}
+.cloud{width:46px;height:32px;flex:none}
+.gh-search{flex:1;max-width:520px;margin:0 auto;height:34px;border:1px solid #747474;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 14px;color:#444}
+.gh-r{display:flex;align-items:center;gap:6px;margin-left:auto}
+.gh-search+.gh-r{margin-left:0}
+.ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#444;position:relative}
+.ic svg.i{width:18px;height:18px}
+.ic .n{position:absolute;top:0;right:0;min-width:15px;height:15px;border-radius:8px;background:var(--sf-red);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+.av{width:30px;height:30px;border-radius:50%;background:#0b5cab;color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+.nb{height:42px;background:#fff;border-bottom:1px solid var(--sf-line);display:flex;align-items:stretch;padding:0 12px;gap:4px;flex:none;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.nb-w{width:34px;display:grid;place-items:center;color:#444;border-radius:8px;border:0;background:transparent;cursor:default}
+.nb-w .dots{display:grid;grid-template-columns:repeat(3,4px);gap:3px}
+.nb-w .dots i{width:4px;height:4px;background:#5c5c5c;border-radius:1px}
+.nb-app{display:flex;align-items:center;font-size:17px;font-weight:600;padding:0 14px 0 6px}
+.nb-t{display:flex;align-items:center;gap:6px;padding:0 14px;font-size:13px;color:#444;border-bottom:3px solid transparent;margin-bottom:-1px}
+.nb-t.on{color:var(--sf-brand);font-weight:600;border-bottom-color:var(--sf-brand)}
+.page{flex:1;min-height:0;position:relative;padding:14px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.card{background:#fff;border:1px solid var(--sf-line);border-radius:12px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--sf-line);font-weight:700;font-size:14px}
+.card-h .l{display:flex;gap:8px;align-items:center}
+/* buttons */
+.btn{font:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:0 16px;height:32px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;border:1px solid var(--sf-border);background:linear-gradient(#fff,#f6f7f9);color:var(--sf-brand);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.btn:hover{background:#f3f6fb}
+.btn.brand{background:linear-gradient(#0b8cf0,#0176d3);border-color:#0176d3;color:#fff}
+.btn.brand:hover{background:linear-gradient(#0a84e3,#0268bd)}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn:focus-visible,.hot:focus-visible,[data-go]:focus-visible,[data-act]:focus-visible{outline:2px solid var(--sf-hot);outline-offset:2px}
+.bg{display:inline-flex;border:1px solid var(--sf-border);border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bg .btn:first-child{border-radius:999px 0 0 999px}
+.bg .btn:last-child{border-radius:0 999px 999px 0}
+.bg .btn{border:0;border-radius:0;box-shadow:none;background:#fff;height:30px}
+.bg .btn+.btn{border-left:1px solid var(--sf-border)}
+.bg .btn:hover{background:#f3f6fb}
+.bg .btn.brand{background:linear-gradient(#0b8cf0,#0176d3);color:#fff}
+.hot{position:relative;outline:2px solid var(--sf-hot);outline-offset:2px;animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,93,46,.65)}70%{box-shadow:0 0 0 9px rgba(255,93,46,0)}100%{box-shadow:0 0 0 0 rgba(255,93,46,0)}}
+@media (prefers-reduced-motion:reduce){.hot{animation:none}}
+/* record header */
+.rh{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.rh-i{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+.rh-t small{display:block;font-size:12px;color:var(--sf-weak)}
+.rh-t h2{margin:0;font-size:20px;font-weight:700}
+.rh .acts{margin-left:auto}
+.hl{display:flex;gap:40px;padding:0 16px 14px 64px;font-size:12px;color:var(--sf-weak)}
+.hl b{display:block;color:var(--sf-text);font-weight:400;font-size:13px;margin-top:2px}
+.hl a{color:var(--sf-brand)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--sf-line);padding:0 16px}
+.tab{border:0;background:transparent;padding:11px 16px;font-size:13px;color:#444;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--sf-brand);font-weight:700;border-bottom-color:var(--sf-brand)}
+.sec{margin:12px 16px 0}
+.sec h3{margin:0 0 8px;font-size:13px;background:#f3f3f3;border-radius:8px;padding:8px 12px;display:flex;gap:6px;align-items:center}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;padding:0 12px}
+.f{border-bottom:1px solid var(--sf-line);padding:7px 0 7px;min-height:46px}
+.f label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sf-weak)}
+.f .v{margin-top:2px;font-size:13px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.f .v a{color:var(--sf-brand)}
+.f .v svg.i{width:13px;height:13px;color:#747474}
+.info{width:14px;height:14px;border-radius:50%;background:var(--sf-brand);color:#fff;font-size:9px;font-weight:700;display:inline-grid;place-items:center;font-style:italic}
+.chk{width:14px;height:14px;border:1px solid #747474;border-radius:3px;background:#fff;display:inline-grid;place-items:center;color:#fff}
+.chk.on{background:var(--sf-brand);border-color:var(--sf-brand)}
+.chk svg.i{width:10px;height:10px;stroke-width:3.5}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:#f3f3f3;text-align:left;font-size:12px;font-weight:600;color:#444;padding:8px 14px;border-bottom:1px solid var(--sf-line)}
+.tbl td{padding:9px 14px;border-bottom:1px solid var(--sf-line)}
+.tbl td a{color:var(--sf-brand)}
+.tbl .r{text-align:right}
+/* modal */
+.ov{position:absolute;inset:0;background:rgba(6,28,70,.55);display:grid;place-items:center;z-index:20}
+.modal{position:relative;width:640px;max-height:640px;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column}
+.modal.sm{width:600px}
+.modal .mh{padding:18px 24px;text-align:center;font-size:20px;border-bottom:1px solid var(--sf-line)}
+.modal .mb{padding:20px 24px;overflow:hidden}
+.modal .mf{padding:12px 24px;border-top:1px solid var(--sf-line);display:flex;justify-content:flex-end;gap:10px;background:#fafafa;border-radius:0 0 14px 14px}
+.x{position:absolute;right:-14px;top:-14px;width:32px;height:32px;border-radius:50%;background:#fff;color:var(--sf-brand);display:grid;place-items:center;border:0;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.x svg.i{width:18px;height:18px;stroke-width:2.6}
+.lbl{display:block;font-size:12px;color:#444;margin-bottom:4px}
+.lbl i{color:var(--sf-red);font-style:normal;margin-right:2px}
+.inp{width:100%;height:34px;border:1px solid #747474;border-radius:8px;padding:0 12px;font:inherit;background:#fff;color:var(--sf-text);display:flex;align-items:center;justify-content:space-between}
+.inp.foc{border-color:var(--sf-brand);box-shadow:0 0 0 2px #bcd8f6}
+.fg{margin-bottom:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.dd{position:absolute;left:0;right:0;top:38px;background:#fff;border:1px solid #c9c9c9;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.2);padding:4px;z-index:3}
+.dd button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 14px;border-radius:7px;font:inherit;cursor:pointer}
+.dd button:hover,.dd button.sel{background:#d8e6fe}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid #d8dde6;border-top-color:var(--sf-brand);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.cb{display:flex;align-items:center;gap:8px;cursor:pointer;border:0;background:transparent;padding:0;font:inherit}
+.cb .chk{width:16px;height:16px}
+.note{background:#eef4ff;border:1px solid #c5dbf8;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#0b3b73}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;background:#e6efff;color:#014486}
+</style>
+<style>
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#e9eef4}
+body{padding:0!important}
+.wrap{display:block;max-width:none;margin:0;height:100%}
+.viewport{position:fixed;inset:0;width:auto;height:auto!important;border:0;border-radius:0;background:#e9eef4}
+</style>
+</head>
+<body>
+<style>
+.compact .gh{height:44px;gap:10px;padding:0 10px}
+.compact .gh-search{max-width:none}
+.compact .ic.opt{display:none}
+.compact .nb{height:38px}
+.toast{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:#2e844a;color:#fff;border-radius:8px;padding:11px 16px;display:flex;gap:10px;align-items:center;z-index:30;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.28);white-space:nowrap}
+.ib{width:34px;height:30px;border:1px solid var(--sf-border);background:#fff;border-radius:8px;display:inline-grid;place-items:center;color:#0b5cab}
+.ibs{display:flex;gap:6px;padding:0 16px 10px}
+.ra{width:28px;height:26px;border:1px solid var(--sf-border);border-radius:8px;display:inline-grid;place-items:center;color:#0b5cab;background:#fff}
+.tree{font-size:13px}.tree .th{font-size:11px;font-weight:700;letter-spacing:.06em;color:#555;padding:12px 4px 4px}
+.tree .tn{display:flex;gap:6px;align-items:center;padding:5px 4px;color:#2b2b2b}.tree .tn svg.i{width:12px;height:12px;color:#747474}
+.fnext{position:absolute;right:20px;bottom:18px;z-index:30;border:0;border-radius:999px;background:#16202b;color:#fff;font:inherit;font-weight:600;font-size:13px;padding:10px 18px;display:flex;gap:8px;align-items:center;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.fnext svg.i{width:15px;height:15px}
+.sk{height:10px;border-radius:6px;background:#e3e7ee;margin-bottom:10px}
+.launcher{position:absolute;left:16px;top:8px;width:470px;z-index:10;box-shadow:0 8px 28px rgba(0,0,0,.22)}
+.launcher .lh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;font-size:16px;font-weight:700}
+.lbl2{padding:10px 16px 4px;font-size:13px;font-weight:700}
+.approw{display:flex;gap:12px;align-items:center;width:100%;border:0;background:transparent;padding:9px 16px;cursor:pointer;font:inherit;font-size:14px;text-align:left}
+.approw:hover{background:#eef4ff}
+.apptile{width:30px;height:30px;border-radius:7px;background:#ff6a22;color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
+.split{position:absolute;inset:0;background:#cdd3dc;padding:8px;display:grid;grid-template-columns:552px 1fr;gap:8px}
+.win{border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.win.sf{background:var(--sf-page)}
+.wtitle{height:36px;background:var(--word);color:#fff;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:12.5px;flex:none}
+.wlogo{width:22px;height:22px;border-radius:4px;background:#fff;color:var(--word);font-weight:800;font-size:13px;display:grid;place-items:center}
+.wtitle .sp{margin-left:auto;display:flex;gap:10px;align-items:center}
+.drag{border:1px dashed #fff;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:12px;padding:4px 12px;display:flex;gap:6px;align-items:center;cursor:pointer}
+.wbody{flex:1;min-height:0;background:var(--word-bg);padding:12px 16px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.wpage{background:#fff;color:#1a1a1a;box-shadow:0 1px 4px rgba(0,0,0,.25);padding:22px 28px 18px;font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:11.5px;line-height:1.4}
+.wpage h4{margin:0;font-size:22px;font-weight:700;color:#14325c;letter-spacing:.02em}
+.wh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #14325c;padding-bottom:8px;margin-bottom:10px}
+.wh .r{text-align:right;font-size:11px}
+.wmeta{display:grid;grid-template-columns:90px 1fr;gap:2px 8px;margin-bottom:10px}
+.wmeta span:nth-child(odd){color:#555}
+.wt{width:100%;border-collapse:collapse;margin:8px 0;table-layout:fixed}
+.wt th{background:#14325c;color:#fff;text-align:left;font-weight:600;padding:4px 6px;font-size:11px}
+.wt td{border-bottom:1px solid #d0d5dd;padding:4px 4px;vertical-align:top;word-break:break-word}
+.wt .r{text-align:right}
+.wtot{margin-left:auto;width:60%;display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+.wtot .g{font-weight:700;border-top:2px solid #14325c;padding-top:3px;margin-top:2px}
+.ph{background:var(--ph);border-bottom:2px solid var(--ph-line);font-family:Consolas,"Courier New",monospace;font-size:9px;padding:0 2px;cursor:pointer;border-radius:2px}
+.ph sup{display:inline-grid;place-items:center;min-width:14px;height:14px;border-radius:7px;background:#d4380d;color:#fff;font-family:var(--font);font-size:9px;font-weight:700;margin-left:2px;vertical-align:top;padding:0 3px}
+.ph.sel{outline:2px solid #d4380d;outline-offset:1px}
+.mapp{background:#fff;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.mapp .mt{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#555}
+.mapp .mrow{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:baseline;font-size:12.5px}
+.mapp .mrow span:nth-child(odd){font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.05em}
+.mapp code{font-family:Consolas,"Courier New",monospace;background:var(--ph);padding:1px 5px;border-radius:3px;font-size:11.5px;word-break:break-all}
+.mchips{display:flex;gap:4px;flex-wrap:wrap}
+.mchips button{width:24px;height:24px;border-radius:50%;border:1px solid #c9c9c9;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#333}
+.mchips button.on{background:#d4380d;color:#fff;border-color:#d4380d}
+.dz{border:2px dashed var(--sf-brand);background:#eef6ff;border-radius:10px;padding:18px;text-align:center;color:var(--sf-brand-d)}
+.dropov{position:absolute;inset:0;background:rgba(1,118,211,.14);display:grid;place-items:center;z-index:25}
+.dropov div{background:#fff;border-radius:12px;padding:22px 34px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);color:#444}
+.dropov svg.i{width:26px;height:26px;display:block;margin:0 auto 8px}
+.fileitem{display:flex;gap:10px;align-items:center;padding:10px 16px}
+.fileicon{width:32px;height:38px;border-radius:5px;background:#185abd;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:end center;padding-bottom:4px}
+.setup-l{width:230px;flex:none;padding:8px 0;border-right:1px solid var(--sf-line);background:#fff;border-radius:12px 0 0 12px}
+.setup-l div{padding:10px 20px;font-size:13px;color:#2b2b2b}
+.setup-l div.on{background:#d8e6fe;color:#014486;font-weight:600;box-shadow:inset 3px 0 0 var(--sf-brand)}
+.crumb{font-size:11px;letter-spacing:.04em;color:#0b5cab;text-transform:uppercase}
+.pal{width:250px;flex:none;border-right:1px solid var(--sf-line);background:#fff;padding:12px;display:flex;flex-direction:column;gap:8px}
+.pal .cat{display:flex;flex-direction:column;gap:3px}
+.pal .cat div,.pal .cat button{padding:7px 10px;border-radius:7px;font-size:13px;border:0;background:transparent;text-align:left;font-family:inherit}
+.pal .cat .on{background:#d8e6fe;font-weight:600;color:#014486}
+.item{border:1px solid var(--sf-border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;cursor:default;display:flex;gap:8px;align-items:center}
+.item.new{border-color:var(--sf-green);background:#eaf5ee}
+.actzone{border:2px dashed #b5bcc8;border-radius:10px;padding:10px;display:flex;gap:8px;flex-wrap:wrap;min-height:50px;align-items:center;background:#fafbfc}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 16.5 14.5 18.2 22 12 18 5.8 22 7.5 14.5 2 9.5 9 9"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.2a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.2a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.2a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.2a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-chevd" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-chevr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-chevl" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M9 3h6l-1 7 3 3H7l3-3z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-guide" viewBox="0 0 24 24"><path d="M18 10a6 6 0 0 0-11.6 1.5A4.5 4.5 0 0 0 7 20h11a5 5 0 0 0 0-10zM9.5 15l2 2 3.5-4"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+<div hidden id="chrome">
+  <div class="top">
+    <div>
+      <h1>easyDoc Quote Flow</h1>
+      <p>Clickable Lightning mockup: generate a Word or PDF offer from a Quote.</p>
+    </div>
+    <div class="steps" id="steps" aria-label="Flow steps"></div>
+  </div>
+  <div class="cap" id="cap">
+    <div class="t"><small id="capGrp"></small><span id="capTitle"></span></div>
+    <div class="h" id="capHint"></div>
+    <div class="ctl">
+      <span class="seg-l" id="tplLbl" hidden>Template step</span>
+      <div class="seg" id="tplSeg" hidden><button type="button" data-tpl="3" class="on">Shown</button><button type="button" data-tpl="1">Skipped (single template)</button></div>
+      <button type="button" class="pbtn" id="back">Back</button>
+      <button type="button" class="pbtn" id="next">Next</button>
+    </div>
+  </div>
+  </div>
+  <div class="viewport" id="vp"><div class="canvas" id="cv">
+
+<!-- A1a: App Launcher -->
+<section class="screen" id="s1" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Setup","tabs":[["Home",1,0],["Object Manager",0,1]]}'></div>
+  <div class="page" style="flex-direction:row;gap:16px">
+    <div class="card" style="width:250px;padding:14px;height:560px"><div class="inp" style="margin-bottom:6px;color:#747474">Quick Find <i data-i="search"></i></div><div class="tree"><div class="th">ADMINISTRATION</div><div class="tn"><i data-i="chevr"></i>Users</div><div class="tn"><i data-i="chevr"></i>Data</div><div class="tn"><i data-i="chevr"></i>Email</div><div class="th">PLATFORM TOOLS</div><div class="tn"><i data-i="chevr"></i>Apps</div><div class="tn"><i data-i="chevr"></i>Feature Settings</div><div class="tn"><i data-i="chevr"></i>User Interface</div><div class="th">SETTINGS</div><div class="tn"><i data-i="chevr"></i>Company Settings</div><div class="tn"><i data-i="chevr"></i>Security</div></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px"><div class="card" style="padding:18px"><h2 style="margin:0 0 14px;font-size:20px">Setup Home</h2><div class="sk" style="width:60%"></div><div class="sk" style="width:45%"></div></div><div class="card" style="height:260px;padding:18px"><div class="sk" style="width:25%;height:14px"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:50%"></div></div></div>
+    <div class="launcher card">
+      <div class="lh">App Launcher <i data-i="close"></i></div>
+      <div style="padding:0 16px 6px"><div class="inp foc" style="justify-content:flex-start;gap:8px"><i data-i="search"></i><span>eas</span></div></div>
+      <div class="lbl2">Apps</div>
+      <button type="button" class="approw hot" data-go="s2" style="border-radius:0"><span class="apptile">Ea</span>EasyDoc</button>
+      <div class="lbl2" style="padding-bottom:16px">Items</div>
+    </div>
+  </div>
+</section>
+
+<!-- A1b: Easy Templates list -->
+<section class="screen" id="s2" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"EasyDoc","tabs":[["Easy Templates",1,1]]}'></div>
+  <div class="page">
+    <div class="card" style="flex:1">
+      <div class="rh" style="align-items:flex-start;padding-bottom:10px">
+        <div class="rh-i" style="background:#ea6a6a;border-radius:50%"><i data-i="file"></i></div>
+        <div class="rh-t"><small>Easy Templates</small><h2 style="display:flex;gap:8px;align-items:center">All <i data-i="chevd"></i> <span class="btn" style="padding:0 8px;height:26px"><i data-i="pin"></i></span></h2></div>
+        <div class="acts bg" style="margin-top:2px"><button type="button" class="btn hot" data-go="s3">New</button><button type="button" class="btn">Import</button><button type="button" class="btn">Change Owner</button><button type="button" class="btn">Printable View</button><button type="button" class="btn">Assign Label</button></div>
+      </div>
+      <div style="padding:0 16px 10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:#444">3 items • Sorted by Document Template Name • Updated a few seconds ago</span><div class="inp" style="width:240px;color:#747474;justify-content:flex-start;gap:8px"><i data-i="search"></i>Search this list...</div></div>
+      <div class="ibs"><span class="ib"><i data-i="gear"></i></span><span class="ib"><i data-i="list"></i></span><span class="ib"><i data-i="refresh"></i></span><span class="ib"><i data-i="pencil"></i></span><span class="ib"><i data-i="filter"></i></span></div>
+      <table class="tbl"><thead><tr><th style="width:44px">&nbsp;</th><th>Document Template Name</th><th>Object Name</th><th>PDF Only</th><th>Is Active</th><th style="width:50px">&nbsp;</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><a href="#" tabindex="-1">AccountTest</a></td><td>Account</td><td>&nbsp;</td><td><span class="chk on"><i data-i="check"></i></span></td><td><span class="ra"><i data-i="chevd"></i></span></td></tr>
+          <tr><td>2</td><td><a href="#" tabindex="-1">Sample Offer</a></td><td>Quote</td><td>&nbsp;</td><td><span class="chk on"><i data-i="check"></i></span></td><td><span class="ra"><i data-i="chevd"></i></span></td></tr>
+          <tr><td>3</td><td><a href="#" tabindex="-1">Sample Offer 1000</a></td><td>Quote</td><td>&nbsp;</td><td><span class="chk on"><i data-i="check"></i></span></td><td><span class="ra"><i data-i="chevd"></i></span></td></tr>
+        </tbody></table>
+    </div>
+  </div>
+</section>
+
+<!-- A1c: New Easy Template -->
+<section class="screen" id="s3" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"EasyDoc","tabs":[["Easy Templates",1,1]]}'></div>
+  <div class="page"><div class="card" style="flex:1;opacity:.6"><div class="rh"><div class="rh-i" style="background:#ea6a6a;border-radius:50%"><i data-i="file"></i></div><div class="rh-t"><small>Easy Templates</small><h2>All</h2></div></div></div></div>
+  <div class="ov">
+    <div class="modal" style="width:700px">
+      <button type="button" class="x" data-go="s2" aria-label="Close"><i data-i="close"></i></button>
+      <div class="mh">New Easy Template</div>
+      <div class="mb">
+        <div class="note" style="margin-bottom:14px">Required: <b>Document Template Name</b> and <b>Object Name</b>. With <b>PDF Only</b> selected, users cannot download the Word file.</div>
+        <div class="row2">
+          <div class="fg"><label class="lbl"><i>*</i>Document Template Name</label><div class="inp">French Sample Offer</div></div>
+          <div class="fg"><label class="lbl"><i>*</i>Object Name <span class="info">i</span></label><div class="inp">Quote <i data-i="chevd"></i></div></div>
+        </div>
+        <div class="fg"><label class="lbl">Description</label><div class="inp" style="height:54px;align-items:flex-start;padding-top:8px;color:#747474">Offer for customers in France</div></div>
+        <div class="fg"><label class="lbl">Condition <span class="info">i</span></label><div class="inp foc" style="font-family:Consolas,'Courier New',monospace;font-size:12.5px;justify-content:flex-start">QuoteAccount.Owner_Country__c = 'France'</div><div style="font-size:12px;color:#444;margin-top:5px">The template is offered only for Quotes whose Account has Owner Country = France.</div></div>
+        <div style="display:flex;gap:36px">
+          <div class="cb"><span class="chk"></span>PDF Only <span class="info">i</span></div>
+          <div class="cb"><span class="chk on"><i data-i="check"></i></span>Is Active <span class="info">i</span></div>
+        </div>
+      </div>
+      <div class="mf"><button type="button" class="btn" data-go="s2">Cancel</button><button type="button" class="btn brand hot" data-go="s4">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- A2: Upload template (split view) -->
+<section class="screen" id="s4" hidden>
+  <div class="split">
+    <div class="win sf compact">
+      <div class="toast" id="toast"><i data-i="check"></i>Easy Template “French Sample Offer” was created.<i data-i="close"></i></div>
+      <div data-gh></div>
+      <div data-nb='{"app":"EasyDoc","tabs":[["Easy Templates",1,1]]}'></div>
+      <div class="page" style="padding:10px;gap:10px">
+        <div class="card" style="flex:none">
+          <div class="rh" style="padding:12px 14px"><div class="rh-i" style="background:#ea6a6a;border-radius:50%"><i data-i="file"></i></div><div class="rh-t"><small>Easy Template</small><h2>French Sample Offer</h2></div><div class="acts bg"><button type="button" class="btn">Edit</button><button type="button" class="btn">Clone</button><button type="button" class="btn">Delete</button></div></div>
+          <div class="tabs" style="padding:0 12px"><button type="button" class="tab on">Details</button></div>
+          <div class="sec" style="margin:10px 12px 0"><h3><i data-i="chevd"></i>Information</h3>
+            <div class="cols" style="gap:0 20px;padding:0 6px">
+              <div><div class="f" style="min-height:40px"><label>Document Template Name</label><div class="v">French Sample Offer</div></div><div class="f" style="min-height:40px"><label>Object Name <span class="info">i</span></label><div class="v">Quote</div></div><div class="f" style="min-height:40px"><label>PDF Only <span class="info">i</span></label><div class="v"><span class="chk"></span></div></div></div>
+              <div><div class="f" style="min-height:40px"><label>Owner</label><div class="v"><a href="#" tabindex="-1">Max Muster</a></div></div><div class="f" style="min-height:40px"><label>Is Active <span class="info">i</span></label><div class="v"><span class="chk on"><i data-i="check"></i></span></div></div><div class="f" style="min-height:40px"><label>Condition <span class="info">i</span></label><div class="v" style="font-family:Consolas,'Courier New',monospace;font-size:11px;word-break:break-all">QuoteAccount.Owner_Country__c = 'France'</div></div></div>
+            </div>
+          </div>
+          <div class="sec" style="margin:8px 12px 12px"><h3><i data-i="chevd"></i>System Information</h3>
+            <div class="cols" style="gap:0 20px;padding:0 6px"><div class="f" style="min-height:40px;border:0"><label>Created By</label><div class="v"><a href="#" tabindex="-1">Max Muster</a>&nbsp;10/22/2026, 1:12 PM</div></div><div class="f" style="min-height:40px;border:0"><label>Last Modified By</label><div class="v"><a href="#" tabindex="-1">Max Muster</a>&nbsp;10/22/2026, 1:12 PM</div></div></div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;min-height:0;position:relative;overflow:hidden">
+          <div class="card-h" style="border:0"><div class="l"><i data-i="file"></i><span id="filesTtl">Files (0)</span></div><button type="button" class="btn" data-act="upload">Add Files</button></div>
+          <div id="filesBody" style="padding:0 14px 14px"><div class="dz">Drag the Word template onto this card from the right, or use <b>Add Files</b>.</div></div>
+          <div class="dropov" id="dropOv" hidden><div><i data-i="upload"></i>Drop Files</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="win">
+      <div class="wtitle"><span class="wlogo">W</span><span>French Sample Offer.docx</span>
+        <span class="sp"><button type="button" class="drag hot" id="dragBtn" data-act="upload"><i data-i="upload"></i>Drag file onto “Files”</button></span></div>
+      <div class="wbody"><div id="wordTpl"></div><div class="mapp" id="mapp"></div></div>
+    </div>
+  </div>
+  <button type="button" class="fnext" id="s4next" data-go="s5" hidden>Next: add the button <i data-i="arrow"></i></button>
+</section>
+
+<!-- A3a: New Action -->
+<section class="screen" id="s5" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Setup","tabs":[["Home",0,0],["Object Manager",1,1]]}'></div>
+  <div class="page" style="padding:0">
+    <div style="padding:12px 20px;background:#fff;border-bottom:1px solid var(--sf-line)"><div class="crumb">Setup › Object Manager</div><h2 style="margin:2px 0 0;font-size:22px">Quote</h2></div>
+    <div style="display:flex;flex:1;min-height:0">
+      <div class="setup-l" style="border-radius:0"><div>Details</div><div>Fields &amp; Relationships</div><div>Page Layouts</div><div>Lightning Record Pages</div><div class="on">Buttons, Links, and Actions</div><div>Compact Layouts</div><div>Field Sets</div><div>Object Limits</div><div>Record Types</div><div>Related Lookup Filters</div><div>Search Layouts</div></div>
+      <div style="flex:1;padding:16px 24px;min-width:0">
+        <div style="font-size:12px;color:#444">Quote Actions</div><h2 style="margin:0 0 12px;font-size:20px">New Action</h2>
+        <div class="card" style="max-width:760px">
+          <div class="card-h" style="background:#f3f3f3;border-radius:12px 12px 0 0"><span>Enter Action Information</span><span style="display:flex;gap:8px"><button type="button" class="btn" data-go="s4">Cancel</button><button type="button" class="btn brand hot" data-go="s6">Save</button></span></div>
+          <div style="padding:16px 24px;display:grid;grid-template-columns:200px 1fr;gap:12px 16px;align-items:center">
+            <span style="text-align:right;font-size:12px;color:#444">Object Name</span><span>Quote</span>
+            <span style="text-align:right;font-size:12px;color:#444"><i style="color:var(--sf-red);font-style:normal">*</i> Action Type</span><div class="inp" style="max-width:260px">Flow <i data-i="chevd"></i></div>
+            <span style="text-align:right;font-size:12px;color:#444"><i style="color:var(--sf-red);font-style:normal">*</i> Flow</span><div class="inp" style="max-width:360px">Generate Easy Doc <i data-i="chevd"></i></div>
+            <span style="text-align:right;font-size:12px;color:#444">Standard Label Type</span><div class="inp" style="max-width:260px">--None-- <i data-i="chevd"></i></div>
+            <span style="text-align:right;font-size:12px;color:#444"><i style="color:var(--sf-red);font-style:normal">*</i> Label</span><div class="inp foc" style="max-width:260px">Create Document</div>
+            <span style="text-align:right;font-size:12px;color:#444"><i style="color:var(--sf-red);font-style:normal">*</i> Name</span><div class="inp" style="max-width:260px">Create_Document</div>
+            <span style="text-align:right;font-size:12px;color:#444">Description</span><div class="inp" style="max-width:360px;height:54px"></div>
+            <span style="text-align:right;font-size:12px;color:#444">Icon</span><span style="display:flex;gap:8px;align-items:center;color:#0b5cab"><i data-i="bolt"></i>Change Icon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- A3b: Page layout -->
+<section class="screen" id="s6" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Setup","tabs":[["Home",0,0],["Object Manager",1,1]]}'></div>
+  <div class="page" style="padding:0">
+    <div style="padding:10px 20px;background:#fff;border-bottom:1px solid var(--sf-line);display:flex;justify-content:space-between;align-items:center"><div><div class="crumb">Quote › Page Layouts</div><h2 style="margin:2px 0 0;font-size:20px">Quote Layout</h2></div><span style="display:flex;gap:8px"><button type="button" class="btn">Quick Save</button><button type="button" class="btn brand" id="layoutSave" data-go="s8">Save</button></span></div>
+    <div style="display:flex;flex:1;min-height:0">
+      <div class="pal"><div class="inp" style="color:#747474;justify-content:flex-start;gap:8px"><i data-i="search"></i>Quick Find</div>
+        <div class="cat"><div>Fields</div><div>Buttons</div><div>Custom Buttons</div><div class="on">Quick Actions</div><div>Mobile &amp; Lightning Actions</div><div>Expanded Lookups</div><div>Related Lists</div></div>
+        <div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Quick Actions</div>
+        <button type="button" class="item hot" id="palAct" data-act="addaction" style="cursor:pointer"><i data-i="bolt"></i>Create Document</button>
+        <div class="item"><i data-i="bolt"></i>Log a Call</div><div class="item"><i data-i="bolt"></i>New Task</div><div class="item"><i data-i="bolt"></i>New Event</div>
+      </div>
+      <div style="flex:1;padding:16px 24px;min-width:0;display:flex;flex-direction:column;gap:14px">
+        <div><h3 style="margin:0 0 8px;font-size:13px;background:#e9ecf1;border-radius:8px;padding:8px 12px">Salesforce Mobile and Lightning Experience Actions</h3>
+          <div class="actzone" id="actzone"><div class="item">Edit</div><div class="item">Delete</div></div></div>
+        <div><h3 style="margin:0 0 8px;font-size:13px;background:#e9ecf1;border-radius:8px;padding:8px 12px">Quote Information</h3><div class="card" style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px"><div class="item">Quote Name</div><div class="item">Opportunity Name</div><div class="item">Status</div><div class="item">Expiration Date</div></div></div>
+        <div><h3 style="margin:0 0 8px;font-size:13px;background:#e9ecf1;border-radius:8px;padding:8px 12px">Related Lists</h3><div class="card" style="padding:14px"><div class="item" style="width:240px">Quote Line Items</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- B4: Quote record -->
+<section class="screen" id="s8" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Sales","tabs":[["Home",0,0],["Accounts",0,1],["Opportunities",0,1],["Quotes",1,1]]}'></div>
+  <div class="page" id="qpage">
+    <div class="card" style="flex:none">
+      <div class="rh">
+        <div class="rh-i" style="background:var(--sf-quote)"><i data-i="tag"></i></div>
+        <div class="rh-t"><small>Quote</small><h2>00012345</h2></div>
+        <div class="acts bg"><button type="button" class="btn hot" data-act="create">Create Document</button><button type="button" class="btn">Edit</button><button type="button" class="btn">Delete</button><button type="button" class="btn" aria-label="More actions"><i data-i="chevd"></i></button></div>
+      </div>
+      <div class="hl"><div>Account Name<b><a href="#" tabindex="-1">Maison Delacroix SAS</a></b></div><div>Opportunity Name<b><a href="#" tabindex="-1">Warehouse Upgrade 2026</a></b></div><div>Expiration Date<b>11/30/2026</b></div><div>Status<b>Draft</b></div><div>Grand Total<b>EUR 16,184.00</b></div></div>
+    </div>
+    <div class="card" style="flex:1;min-height:0;overflow:hidden">
+      <div class="tabs"><button type="button" class="tab on" data-act="tab" data-t="qd">Details</button><button type="button" class="tab" data-act="tab" data-t="qr">Related</button></div>
+      <div id="qd">
+        <div class="sec"><h3><i data-i="chevd"></i>Quote Information</h3>
+          <div class="cols">
+            <div><div class="f"><label>Quote Number</label><div class="v">00012345</div></div><div class="f"><label>Quote Name</label><div class="v">Warehouse Upgrade 2026</div></div><div class="f"><label>Account Name</label><div class="v"><a href="#" tabindex="-1">Maison Delacroix SAS</a></div></div><div class="f"><label>Contact Name</label><div class="v"><a href="#" tabindex="-1">Camille Laurent</a></div></div></div>
+            <div><div class="f"><label>Status</label><div class="v">Draft</div></div><div class="f"><label>Expiration Date</label><div class="v">11/30/2026</div></div><div class="f"><label>Opportunity Name</label><div class="v"><a href="#" tabindex="-1">Warehouse Upgrade 2026</a></div></div><div class="f"><label>Owner</label><div class="v"><a href="#" tabindex="-1">Max Muster</a></div></div></div>
+          </div>
+        </div>
+        <div class="sec"><h3><i data-i="chevd"></i>Pricing</h3>
+          <div class="cols">
+            <div><div class="f"><label>Quote Currency</label><div class="v">EUR - Euro</div></div><div class="f"><label>Subtotal</label><div class="v">EUR 13,600.00</div></div></div>
+            <div><div class="f"><label>Tax</label><div class="v">EUR 2,584.00</div></div><div class="f"><label>Grand Total</label><div class="v"><b>EUR 16,184.00</b></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="qr" hidden style="padding:16px">
+        <div class="card"><div class="card-h"><div class="l"><span class="rh-i" style="background:#f2a23b;width:28px;height:28px"><i data-i="file"></i></span>Quote Line Items (3)</div></div>
+          <table class="tbl"><thead><tr><th>Product</th><th class="r">Quantity</th><th class="r">Sales Price</th><th class="r">Total Price</th></tr></thead><tbody>
+            <tr><td><a href="#" tabindex="-1">Conveyor Belt Module CB-200</a></td><td class="r">4</td><td class="r">EUR 1,250.00</td><td class="r">EUR 5,000.00</td></tr>
+            <tr><td><a href="#" tabindex="-1">Pallet Shuttle PS-80</a></td><td class="r">2</td><td class="r">EUR 3,400.00</td><td class="r">EUR 6,800.00</td></tr>
+            <tr><td><a href="#" tabindex="-1">Installation &amp; Commissioning</a></td><td class="r">1</td><td class="r">EUR 1,800.00</td><td class="r">EUR 1,800.00</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- B5a: Choose template -->
+<section class="screen" id="s9" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Sales","tabs":[["Home",0,0],["Accounts",0,1],["Opportunities",0,1],["Quotes",1,1]]}'></div>
+  <div class="page" data-qclone inert></div>
+  <div class="ov">
+    <div class="modal sm">
+      <button type="button" class="x" data-go="s8" aria-label="Close"><i data-i="close"></i></button>
+      <div class="mh">Create Document</div>
+      <div class="mb" style="min-height:300px">
+        <p style="margin:0 0 14px">Please select one of the available templates for this record.</p>
+        <label class="lbl"><i>*</i>Easy Templates</label>
+        <div style="position:relative">
+          <button type="button" class="inp foc" id="pickInp" data-act="toggledd" style="text-align:left;cursor:pointer"><span id="pickVal" style="color:#747474">Select an Option</span><i data-i="search"></i></button>
+          <div class="dd" id="pickDd"></div>
+        </div>
+      </div>
+      <div class="mf"><button type="button" class="btn brand" id="pickNext" data-go="s10" disabled>Next</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- B5b: Result -->
+<section class="screen" id="s10" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Sales","tabs":[["Home",0,0],["Accounts",0,1],["Opportunities",0,1],["Quotes",1,1]]}'></div>
+  <div class="page" data-qclone inert></div>
+  <div class="ov">
+    <div class="modal sm">
+      <button type="button" class="x" data-go="s8" aria-label="Close"><i data-i="close"></i></button>
+      <div class="mh">Create Document</div>
+      <div class="mb" style="min-height:230px">
+        <div id="genBox" style="display:flex;gap:14px;align-items:center;padding:50px 0 0"><div class="spin"></div><span>Generating your document…</span></div>
+        <div id="okBox" hidden>
+          <p style="margin:0 0 26px">Your Easy Doc has been generated successfully.</p>
+          <button type="button" class="cb" data-act="pdf" id="pdfCb" style="margin-bottom:16px"><span class="chk" id="pdfChk"></span>Download As Pdf</button>
+          <div><button type="button" class="btn hot" data-go="s11"><i data-i="download"></i>Download File</button></div>
+        </div>
+      </div>
+      <div class="mf"><button type="button" class="btn brand" data-go="s8">Finish</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- B6a: Downloads -->
+<section class="screen" id="s11" hidden>
+  <div data-gh></div>
+  <div data-nb='{"app":"Sales","tabs":[["Home",0,0],["Accounts",0,1],["Opportunities",0,1],["Quotes",1,1]]}'></div>
+  <div class="page" data-qclone inert></div>
+  <div class="ov" inert>
+    <div class="modal sm">
+      <div class="mh">Create Document</div>
+      <div class="mb" style="min-height:230px"><p style="margin:0 0 26px">Your Easy Doc has been generated successfully.</p><div class="cb" style="margin-bottom:16px"><span class="chk" id="pdfChk2"></span>Download As Pdf</div><div><span class="btn"><i data-i="download"></i>Download File</span></div></div>
+      <div class="mf"><span class="btn brand">Finish</span></div>
+    </div>
+  </div>
+  <div style="position:absolute;right:20px;top:58px;width:360px;background:#fff;border:1px solid #c9ced6;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:40;padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;padding:2px 4px 10px"><span style="display:flex;gap:8px;align-items:center"><i data-i="folder"></i>Downloads</span><span style="font-weight:400;font-size:12px;color:#0b5cab">Show in folder</span></div>
+    <button type="button" class="hot" data-go="s12" style="display:flex;gap:12px;align-items:center;width:100%;border:1px solid #d8dde6;background:#f7f9fc;border-radius:10px;padding:10px;cursor:pointer;text-align:left;font:inherit">
+      <span class="fileicon" id="dlIcon">docx</span>
+      <span style="flex:1;min-width:0"><b id="dlName" style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">French Sample Offer.docx</b><span style="font-size:12px;color:#666">Done · click to open</span></span>
+    </button>
+  </div>
+</section>
+
+<!-- B6b: Filled document -->
+<section class="screen" id="s12" hidden style="background:#6c7480">
+  <div class="win" style="position:absolute;left:196px;top:60px;width:888px;height:590px">
+    <div class="wtitle" id="docTitle"><span class="wlogo" id="docLogo">W</span><span id="docName">French Sample Offer.docx</span></div>
+    <div class="wbody" style="gap:12px;padding:14px 20px">
+      <div id="wordFilled"></div>
+      <div class="mapp" style="flex-direction:row;align-items:center;gap:14px"><i data-i="check" style="color:#2e844a"></i><span style="font-size:12.5px">All placeholders are replaced with the Quote data. Each of the 3 Quote Line Items is one table row.</span></div>
+    </div>
+  </div>
+  <button type="button" class="fnext" data-go="s1">Start over <i data-i="arrow"></i></button>
+</section>
+
+  </div></div>
+</div>
+<style>
+.wtot span:nth-child(even){text-align:right}
+.wpage.big{font-size:13px;padding:26px 36px 22px}
+.wpage.big h4{font-size:26px}
+.wpage.big .wt th{font-size:12px;padding:5px 8px}
+.wpage.big .wt td{padding:6px 8px}
+</style>
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')};
+  var ico=function(n){return '<svg class="i" aria-hidden="true"><use href="#i-'+n+'"/></svg>'};
+  function hydrate(root){
+    $$('i[data-i]',root).forEach(function(e){
+      var t=document.createElement('div');t.innerHTML=ico(e.getAttribute('data-i'));
+      var s=t.firstChild;s.style.cssText=e.style.cssText;e.replaceWith(s);
+    });
+  }
+
+  /* ---------- data (same on every screen) ---------- */
+  var Q={num:'00012345',exp:'Nov 30, 2026',acct:'Maison Delacroix SAS',contact:'Camille Laurent',owner:'Max Muster',opp:'Warehouse Upgrade 2026',sub:'13,600.00',tax:'2,584.00',tot:'16,184.00'};
+  var ITEMS=[['Conveyor Belt Module CB-200',4,'1,250.00','5,000.00'],['Pallet Shuttle PS-80',2,'3,400.00','6,800.00'],['Installation & Commissioning',1,'1,800.00','1,800.00']];
+  var TPL=['French Sample Offer'];
+  var MAP=[
+    {n:1,code:'{!QuoteNumber}',kind:'Simple field',src:'Quote › Quote Number',val:Q.num},
+    {n:2,code:'{!ExpirationDate|date}',kind:'Simple field with modifier “date”',src:'Quote › Expiration Date',val:Q.exp},
+    {n:3,code:'{!QuoteAccount.Name}',kind:'Field of a parent object',src:'Quote › Account › Account Name',val:Q.acct},
+    {n:4,code:'{!Contact.Name}',kind:'Field of a parent object',src:'Quote › Contact › Name',val:Q.contact},
+    {n:5,code:'{!Owner.Name}',kind:'Field of a parent object',src:'Quote › Owner › Name',val:Q.owner},
+    {n:6,code:'{!Opportunity.Name}',kind:'Field of a parent object',src:'Quote › Opportunity › Name',val:Q.opp},
+    {n:7,code:'{LOOP:QuoteLineItems|Quantity != 0} … {/LOOP}',kind:'Child records: one table row per record',src:'Quote Line Items with Quantity != 0; {!@i} is the row number',val:'3 table rows'},
+    {n:8,code:'{!Product2.Name}  {!Quantity}  {!UnitPrice|number}  {!TotalPrice|number}',kind:'Fields of the Quote Line Item',src:'Quote Line Item › Product › Name, Quantity, Sales Price, Total Price',val:'Conveyor Belt Module CB-200 · 4 · 1,250.00 · 5,000.00'},
+    {n:9,code:'{!../CurrencyIsoCode}',kind:'Parent field from inside the LOOP (../)',src:'Quote › Currency ISO Code',val:'EUR'},
+    {n:10,code:'{!Subtotal|number}  {!Tax|number}  {!GrandTotal|number}',kind:'Simple fields with modifier “number”',src:'Quote › Subtotal, Tax, Grand Total',val:Q.sub+' · '+Q.tax+' · '+Q.tot}
+  ];
+  var SCREENS=[
+    {id:'s1',step:1,grp:'A · Admin setup',title:'Step 1 · Create the template',hint:'Open EasyDoc from the App Launcher (search “eas”) and click EasyDoc.'},
+    {id:'s2',step:1,grp:'A · Admin setup',title:'Step 1 · Create the template',hint:'On the Easy Templates list, click New.'},
+    {id:'s3',step:1,grp:'A · Admin setup',title:'Step 1 · Create the template',hint:'Name and Object are required. The Condition limits the template to Quotes whose Account has Owner Country = France. Optional: PDF Only (no Word download). Click Save.'},
+    {id:'s4',step:2,grp:'A · Admin setup',title:'Step 2 · Upload the Word template',hint:'Attach the Word file with the placeholders to the template. Click a placeholder number to see which Quote field it reads.'},
+    {id:'s5',step:3,grp:'A · Admin setup',title:'Step 3 · Add the button',hint:'Create an action of type Flow with the label “Create Document”. Click Save.'},
+    {id:'s6',step:3,grp:'A · Admin setup',title:'Step 3 · Add the button',hint:'Place the action on the Quote page layout (a Lightning record page works the same way). Click the action, then Save. Next: the user view.'},
+    {id:'s8',step:4,grp:'B · User',title:'Step 4 · Open the Quote',hint:'The Quote shows the Highlights Panel, Details and, on the Related tab, the Quote Line Items. Click Create Document.'},
+    {id:'s9',step:5,grp:'B · User',title:'Step 5 · Choose a template',hint:'Only templates whose condition matches this Quote are offered: here “French Sample Offer” (Account Owner Country = France). Pick it, then click Next.'},
+    {id:'s10',step:5,grp:'B · User',title:'Step 5 · Download',hint:'Tick “Download As Pdf” to get a PDF instead of Word. Then click Download File.'},
+    {id:'s11',step:6,grp:'B · User',title:'Step 6 · Find the file',hint:'The file is in the browser’s download folder. Click it to open it.'},
+    {id:'s12',step:6,grp:'B · User',title:'Step 6 · Open the document',hint:'The document is filled with the Quote data: real values instead of placeholders, line items as table rows.'}
+  ];
+  var STEPS=[['Template',1],['Upload',2],['Button',3],['Quote',4],['Select',5],['Result',6]];
+
+  /* ---------- state ---------- */
+  var cur=0,uploaded=false,actionAdded=false,tplCount=3,tplName='',pdf=false,ddOpen=true,mapSel=1,genTimer=null;
+
+  /* ---------- build header, nav, quote clones ---------- */
+  var GH='<div class="gh"><svg class="cloud" viewBox="0 0 52 36" aria-hidden="true"><g fill="#00a1e0"><circle cx="12" cy="23" r="9"/><circle cx="20" cy="14" r="9"/><circle cx="31" cy="11" r="10"/><circle cx="42" cy="17" r="8"/><circle cx="43" cy="25" r="7"/><rect x="12" y="15" width="31" height="17"/></g></svg>'+
+    '<div class="gh-search"><i data-i="search"></i>Search...</div><div class="gh-r"><span class="ic opt" style="width:50px;display:flex;gap:3px;justify-content:center;align-items:center"><i data-i="star"></i><i data-i="chevd" style="width:12px;height:12px"></i></span><span class="ic opt"><i data-i="plus"></i></span><span class="ic opt"><i data-i="guide"></i></span><span class="ic opt"><i data-i="help"></i></span><span class="ic"><i data-i="gear"></i></span><span class="ic"><i data-i="bell"></i><span class="n">2</span></span><span class="av">MM</span></div></div>';
+  $$('[data-gh]').forEach(function(e){e.outerHTML=GH});
+  $$('[data-nb]').forEach(function(e){
+    var d=JSON.parse(e.getAttribute('data-nb'));
+    var h='<div class="nb"><span class="nb-w"><span class="dots">'+'<i></i>'.repeat(9)+'</span></span><span class="nb-app">'+esc(d.app)+'</span>'+
+      d.tabs.map(function(t){return '<span class="nb-t'+(t[1]?' on':'')+'">'+esc(t[0])+(t[2]?'<i data-i="chevd"></i>':'')+'</span>'}).join('')+'</div>';
+    e.outerHTML=h;
+  });
+  var qsrc=$('#qpage');
+  $$('[data-qclone]').forEach(function(e){
+    e.innerHTML=qsrc.innerHTML;
+    $$('.hot',e).forEach(function(n){n.classList.remove('hot')});
+    $$('[id]',e).forEach(function(n){n.removeAttribute('id')});
+    $$('[data-act]',e).forEach(function(n){n.removeAttribute('data-act')});
+  });
+  hydrate(document);
+
+  /* ---------- Word document (template with callouts / filled result) ---------- */
+  function wordDoc(mode,big){
+    var T=mode==='tpl';
+    function p(n,code,val,sup){
+      if(!T)return esc(val);
+      return '<span class="ph'+(n===mapSel?' sel':'')+'" data-act="map" data-n="'+n+'" role="button" tabindex="0">'+esc(code)+(sup===false?'':'<sup>'+n+'</sup>')+'</span>';
+    }
+    var rows=T?
+      '<tr><td>'+p(7,'{LOOP:QuoteLineItems|Quantity != 0}','')+' '+p(7,'{!@i}','',false)+'</td><td>'+p(8,'{!Product2.Name}','')+'</td><td class="r">'+p(8,'{!Quantity}','',false)+'</td><td class="r">'+p(8,'{!UnitPrice|number}','',false)+' '+p(9,'{!../CurrencyIsoCode}','')+'</td><td class="r">'+p(8,'{!TotalPrice|number}','',false)+p(7,'{/LOOP}','',false)+'</td></tr>':
+      ITEMS.map(function(it,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(it[0])+'</td><td class="r">'+it[1]+'</td><td class="r">'+it[2]+' EUR</td><td class="r">'+it[3]+' EUR</td></tr>'}).join('');
+    var cols=T?'<col style="width:24%"><col style="width:20%"><col style="width:14%"><col style="width:22%"><col style="width:20%">':'<col style="width:8%"><col style="width:42%"><col style="width:10%"><col style="width:20%"><col style="width:20%">';
+    var cur_=function(){return T?p(10,'{!CurrencyIsoCode}','',false):'EUR'};
+    return '<div class="wpage'+(big?' big':'')+'">'+
+      '<div class="wh"><h4>Offer</h4><div class="r">Offer No. '+p(1,'{!QuoteNumber}',Q.num)+'<br>Valid until '+p(2,'{!ExpirationDate|date}',Q.exp)+'</div></div>'+
+      '<div class="wmeta"><span>Customer</span><span>'+p(3,'{!QuoteAccount.Name}',Q.acct)+'</span><span>Attention</span><span>'+p(4,'{!Contact.Name}',Q.contact)+'</span><span>Project</span><span>'+p(6,'{!Opportunity.Name}',Q.opp)+'</span><span>Your contact</span><span>'+p(5,'{!Owner.Name}',Q.owner)+'</span></div>'+
+      '<div>Thank you for your inquiry. We are pleased to offer you the following items:</div>'+
+      '<table class="wt"><colgroup>'+cols+'</colgroup><thead><tr><th>Pos.</th><th>Product</th><th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Total</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="wtot"><span>Subtotal</span><span>'+p(10,'{!Subtotal|number}',Q.sub)+' '+cur_()+'</span><span>Tax</span><span>'+p(10,'{!Tax|number}',Q.tax,false)+' '+cur_()+'</span><span class="g">Total</span><span class="g">'+p(10,'{!GrandTotal|number}',Q.tot,false)+' '+cur_()+'</span></div></div>';
+  }
+
+  /* ---------- renderers ---------- */
+  function renderS4(){
+    $('#wordTpl').innerHTML=wordDoc('tpl',false);
+    var m=MAP.filter(function(x){return x.n===mapSel})[0];
+    $('#mapp').innerHTML='<div class="mt">Placeholder ↔ Quote field<span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400">Click a number in the document</span></div>'+
+      '<div class="mrow"><span>Placeholder</span><span><code>'+esc(m.code)+'</code></span><span>Type</span><span>'+esc(m.kind)+'</span><span>Reads</span><span>'+esc(m.src)+'</span><span>Example</span><span>'+esc(m.val)+'</span></div>'+
+      '<div class="mchips">'+MAP.map(function(x){return '<button type="button" data-act="map" data-n="'+x.n+'" aria-label="Placeholder '+x.n+'" class="'+(x.n===mapSel?'on':'')+'">'+x.n+'</button>'}).join('')+'</div>';
+  }
+  function renderFiles(){
+    $('#filesTtl').textContent=uploaded?'Files (1)':'Files (0)';
+    $('#filesBody').innerHTML=uploaded?
+      '<div class="fileitem" style="padding:6px 0"><span class="fileicon">docx</span><div><a href="#" tabindex="-1" style="color:var(--sf-brand)">French Sample Offer</a><div style="font-size:12px;color:#666">10/22/2026 • 38KB • docx</div></div></div>':
+      '<div class="dz">Drag the Word template onto this card from the right, or use <b>Add Files</b>.</div>';
+    $('#s4next').hidden=!uploaded;
+    $('#dragBtn').classList.toggle('hot',!uploaded);
+    $('#s4next').classList.toggle('hot',uploaded);
+  }
+  function renderActs(){
+    $('#actzone').innerHTML=(actionAdded?'<div class="item new">'+ico('bolt')+'Create Document</div>':'')+'<div class="item">Edit</div><div class="item">Delete</div>';
+    var pa=$('#palAct');pa.classList.toggle('hot',!actionAdded);pa.disabled=actionAdded;pa.style.opacity=actionAdded?'.45':'1';
+    $('#layoutSave').classList.toggle('hot',actionAdded);
+  }
+  function renderPick(){
+    var dd=$('#pickDd');
+    dd.hidden=!ddOpen;
+    dd.innerHTML=TPL.map(function(t,i){return '<button type="button" data-act="pick" data-v="'+esc(t)+'" class="'+(t===tplName?'sel':'')+'">'+esc(t)+'</button>'}).join('');
+    var v=$('#pickVal');v.textContent=tplName||'Select an Option';v.style.color=tplName?'#181818':'#747474';
+    var nx=$('#pickNext');nx.disabled=!tplName;nx.classList.toggle('hot',!!tplName);
+  }
+  function renderPdf(){
+    $('#pdfChk').className='chk'+(pdf?' on':'');$('#pdfChk').innerHTML=pdf?ico('check'):'';
+  }
+  function fileName(){return (tplName||TPL[0])+(pdf?'.pdf':'.docx')}
+
+  /* ---------- navigation ---------- */
+  function buildSteps(){
+    var h='<span class="grp">A · Admin</span>';
+    STEPS.forEach(function(s,i){
+      if(i===3)h+='<span class="grp">B · User</span>';
+      h+='<button type="button" class="chip" data-step="'+s[1]+'"><b>'+s[1]+'</b>'+s[0]+'</button>';
+    });
+    $('#steps').innerHTML=h;
+  }
+  function go(id){
+    var i=SCREENS.findIndex(function(s){return s.id===id});if(i<0)return;
+    if(id==='s9'&&tplCount===1){tplName=TPL[0];id='s10';i=SCREENS.findIndex(function(s){return s.id===id})}
+    if(id==='s10'&&!tplName)tplName=TPL[0];
+    cur=i;var sc=SCREENS[i];
+    $$('.screen').forEach(function(s){s.hidden=s.id!==id});
+    $('#capGrp').textContent=sc.grp;$('#capTitle').textContent=sc.title;$('#capHint').textContent=sc.hint;
+    $$('.chip').forEach(function(c){c.classList.toggle('on',+c.getAttribute('data-step')===sc.step)});
+    $('#back').disabled=i===0;$('#next').disabled=i===SCREENS.length-1;
+    var showT=(id==='s8'||id==='s9'||id==='s10');
+    $('#tplSeg').hidden=!showT;$('#tplLbl').hidden=!showT;
+    clearTimeout(genTimer);
+    if(id==='s4'){renderS4();renderFiles()}
+    if(id==='s6')renderActs();
+    if(id==='s9'){ddOpen=!tplName;renderPick()}
+    if(id==='s10'){
+      renderPdf();$('#genBox').hidden=false;$('#okBox').hidden=true;
+      genTimer=setTimeout(function(){$('#genBox').hidden=true;$('#okBox').hidden=false},900);
+    }
+    if(id==='s11'){
+      $('#dlName').textContent=fileName();
+      var ic=$('#dlIcon');ic.textContent=pdf?'pdf':'docx';ic.style.background=pdf?'#d93025':'#185abd';
+      $('#pdfChk2').className='chk'+(pdf?' on':'');$('#pdfChk2').innerHTML=pdf?ico('check'):'';
+    }
+    if(id==='s12'){
+      $('#wordFilled').innerHTML=wordDoc('filled',true);
+      $('#docName').textContent=fileName();
+      $('#docTitle').style.background=pdf?'#3b3f45':'';
+      var lg=$('#docLogo');lg.textContent=pdf?'PDF':'W';lg.style.color=pdf?'#d93025':'';lg.style.fontSize=pdf?'9px':'';lg.style.width=pdf?'30px':'';
+    }
+  }
+  function step(d){
+    var i=cur+d;
+    if(SCREENS[i]&&SCREENS[i].id==='s9'&&tplCount===1)i+=d;
+    if(SCREENS[i])go(SCREENS[i].id);
+  }
+
+  /* ---------- interaction ---------- */
+  function act(a){
+    var k=a.getAttribute('data-act');
+    if(k==='upload'){
+      if(uploaded)return;
+      $('#dropOv').hidden=false;
+      setTimeout(function(){$('#dropOv').hidden=true;uploaded=true;renderFiles()},750);
+    }else if(k==='map'){mapSel=+a.getAttribute('data-n');renderS4()}
+    else if(k==='addaction'){actionAdded=true;renderActs()}
+    else if(k==='create'){go('s9')}
+    else if(k==='toggledd'){ddOpen=!ddOpen;renderPick()}
+    else if(k==='pick'){tplName=a.getAttribute('data-v');ddOpen=false;renderPick()}
+    else if(k==='pdf'){pdf=!pdf;renderPdf()}
+    else if(k==='tab'){
+      var t=a.getAttribute('data-t');
+      $('#qd').hidden=t!=='qd';$('#qr').hidden=t!=='qr';
+      $$('.tab',$('#s8')).forEach(function(b){b.classList.toggle('on',b===a)});
+    }
+  }
+  $('#cv').addEventListener('click',function(e){
+    var a=e.target.closest('[data-act]');
+    if(a&&!a.disabled){act(a);return}
+    var g=e.target.closest('[data-go]');
+    if(g&&!g.disabled)go(g.getAttribute('data-go'));
+  });
+  $('#cv').addEventListener('keydown',function(e){
+    if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('ph')){e.preventDefault();act(e.target)}
+  });
+  $('#steps').addEventListener('click',function(e){
+    var c=e.target.closest('.chip');if(!c)return;
+    var n=+c.getAttribute('data-step');
+    var s=SCREENS.filter(function(x){return x.step===n})[0];
+    if(s)go(s.id);
+  });
+  $('#back').addEventListener('click',function(){step(-1)});
+  $('#next').addEventListener('click',function(){step(1)});
+  $('#tplSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    tplCount=+b.getAttribute('data-tpl');
+    $$('#tplSeg button').forEach(function(x){x.classList.toggle('on',x===b)});
+    var id=SCREENS[cur].id;
+    if(id==='s8'||id==='s9')tplName=tplCount===1?TPL[0]:'';
+    if(id==='s9'&&tplCount===1)go('s10');else if(id==='s9')go('s9');
+  });
+
+  /* ---------- scale the 1280×720 screen to the available width ---------- */
+  var vp=$('#vp'),cv=$('#cv');
+  function fit(){var w=vp.clientWidth,h=vp.clientHeight,s=Math.min(w/1280,h/720);cv.style.transform='translate('+Math.round((w-1280*s)/2)+'px,'+Math.round((h-720*s)/2)+'px) scale('+s+')'}
+  if(window.ResizeObserver)new ResizeObserver(fit).observe(vp);
+  window.addEventListener('resize',fit);
+  fit();
+  buildSteps();
+  go('s1');
+})();
+</script>
+
+</body>
+</html>
